@@ -1,0 +1,14 @@
+const formatDateToDDMMYY = (dateStr) => {
+  if (!dateStr) return null;
+  const [yyyy, mm, dd] = dateStr.split("-");
+  const yy = yyyy.slice(2);
+  return `${dd}${mm}${yy}`;
+};
+
+const buildPayload = (filters) => ({
+  fromDate: formatDateToDDMMYY(filters.fromDate),
+  toDate: formatDateToDDMMYY(filters.toDate),
+  branchCode: filters.branchCode?.trim() || null,
+  currency: filters.currency?.trim() || null,
+  cgl: filters.cgl?.trim() || null,
+});

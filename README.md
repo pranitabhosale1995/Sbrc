@@ -30,8 +30,10 @@ const INITIAL_FILTERS = {
 };
 
 const INITIAL_PAGINATION = { page: 0, pageSize: 100 };
-const PAGE_SIZE_OPTIONS = [100, 200, 300, 400];
+// const PAGE_SIZE_OPTIONS = [100, 200, 300, 400];
 const TODAY = new Date().toISOString().split("T")[0];
+
+
 
 const formatNumber = (value) =>
   value != null
@@ -41,12 +43,7 @@ const formatNumber = (value) =>
       })
     : "-";
 
-// const formatDateToDDMMYY = (dateStr) => {
-//   if (!dateStr) return null;
-//   const [yyyy, mm, dd] = dateStr.split("-");
-//   const yy = yyyy.slice(2);
-//   return `${dd}${mm}${yy}`;
-// };
+
 
 const buildPayload = (filters) => ({
   fromDate:filters.fromDate,
@@ -94,6 +91,7 @@ const NumericCell = ({ value }) => (
 
 const BalanceRangeSearchScreen = () => {
   const { callApi } = useApi();
+  const { validateBranchCode, validateCurrency, validateCGL } = useValidation(); // ✅ added
 
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [rows, setRows] = useState([]);
@@ -230,18 +228,16 @@ const BalanceRangeSearchScreen = () => {
 
             <Grid item xs={12} sm={6} md={2.4}>
               <TextField
+              
                 fullWidth label="From Date" type="date" size="small"
                 value={filters.fromDate}
                 onChange={(e) => updateFilter("fromDate", e.target.value)}
                 InputLabelProps={{ shrink: true }}
                 InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <CalendarMonthIcon fontSize="small" color="action" />
-                    </InputAdornment>
-                  ),
+                 
                   inputProps: { max: TODAY },
                 }}
+                onKeyDown={(e)=>e.preventDefault()}
                 error={!!validationErrors.fromDate}
                 helperText={validationErrors.fromDate}
               />
@@ -254,13 +250,10 @@ const BalanceRangeSearchScreen = () => {
                 onChange={(e) => updateFilter("toDate", e.target.value)}
                 InputLabelProps={{ shrink: true }}
                 InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <CalendarMonthIcon fontSize="small" color="action" />
-                    </InputAdornment>
-                  ),
+                 
                   inputProps: { max: TODAY },
                 }}
+                 onKeyDown={(e)=>e.preventDefault()}
                 error={!!validationErrors.toDate}
                 helperText={validationErrors.toDate}
               />
@@ -270,7 +263,12 @@ const BalanceRangeSearchScreen = () => {
               <TextField
                 fullWidth label="Branch Code" size="small"
                 value={filters.branchCode}
-                onChange={(e) => updateFilter("branchCode", e.target.value)}
+                onChange={(e) =>
+                  updateFilter(
+                    "branchCode",
+                    validateBranchCode(e.target.value)
+                  )
+                }
                 inputProps={{ maxLength: 20 }}
               />
             </Grid>
@@ -279,7 +277,12 @@ const BalanceRangeSearchScreen = () => {
               <TextField
                 fullWidth label="Currency" size="small"
                 value={filters.currency}
-                onChange={(e) => updateFilter("currency", e.target.value.toUpperCase())}
+                 onChange={(e) =>
+                  updateFilter(
+                    "currency",
+                    validateCurrency(e.target.value)
+                  )
+                }
                 inputProps={{ maxLength: 3 }}
               />
             </Grid>
@@ -288,7 +291,9 @@ const BalanceRangeSearchScreen = () => {
               <TextField
                 fullWidth label="CGL" size="small"
                 value={filters.cgl}
-                onChange={(e) => updateFilter("cgl", e.target.value)}
+                 onChange={(e) =>
+                  updateFilter("cgl", validateCGL(e.target.value))
+                }
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -331,9 +336,9 @@ const BalanceRangeSearchScreen = () => {
             paginationMode="server"
             paginationModel={paginationModel}
             onPaginationModelChange={setPaginationModel}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            // pageSizeOptions={[10, 25, 50, 100]}
             disableRowSelectionOnClick
-            autoHeight
+           
             density="compact"
             sx={{
               border: "none",

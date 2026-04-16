@@ -1,0 +1,324 @@
+import React, { useState, useCallback, useEffect } from "react";
+import {
+  TextField,
+  Button,
+  Box,
+  Paper,
+  Typography,
+  IconButton,
+  Grid,
+  Card,
+  CardContent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  InputAdornment,
+} from "@mui/material";
+import { DataGrid } from "@mui/x-data-grid";
+import HistoryIcon from "@mui/icons-material/History";
+import CloseIcon from "@mui/icons-material/Close";
+import SearchIcon from "@mui/icons-material/Search";
+import useApi from "../../hooks/useApi";
+import useValidation from "./Validation";
+
+const BalanceParticularSearchScreen = () => {
+  const { callApi } = useApi();
+  const { validateBranchCode, validateCurrency, validateCGL } = useValidation();
+
+  const [filters, setFilters] = useState({
+    date: "",
+    branchCode: "",
+    currency: "",
+    cgl: "",
+  });
+
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [totalElements, setTotalElements] = useState(0);
+  const [etlDate, setEtlDate] = useState();
+
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: 10,
+  });
+
+  const [openHistory, setOpenHistory] = useState(false);
+  const [selectedRow, setSelectedRow] = useState(null);
+
+  const updateFilter = (key, value) =>
+    setFilters((prev) => ({ ...prev, [key]: value }));
+
+  // ETL Date
+  useEffect(() => {
+    const fetchDefaultETLDate = async () => {
+      try {
+        const response = await callApi("/PS/file/fincore-date", {}, "GET");
+        const etlDate = response?.data?.etlDate || response?.date || "";
+        if (etlDate) {
+          setEtlDate(etlDate);
+          updateFilter("date", etlDate);
+          fetchData(etlDate, 0, paginationModel.pageSize);
+        }
+      } catch (err) {
+        console.error("ETL Date Error:", err);
+      }
+    };
+    fetchDefaultETLDate();
+  }, []);
+
+  // MAIN API
+  const fetchData = useCallback(
+    async (date, pageIndex, pageSize) => {
+      if (!date) return;
+      setLoading(true);
+      try {
+        const payload = {
+          fromDate: date,
+          toDate: date,
+          branchCode: filters.branchCode || null,
+          currency: filters.currency || null,
+          cgl: filters.cgl || null,
+        };
+
+        const response = await callApi(
+          `/ES/differences/search?page=${pageIndex}&size=${pageSize}`,
+          payload,
+          "POST"
+        );
+
+        // ✅ FIXED HERE
+        const content = response?.data || response || [];
+
+        const mappedRows = content.map((item, index) => ({
+          id: item.id || `row-${pageIndex}-${index}`,
+          ...item,
+          GLCC_VAL: `${item.branchCode} ${item.currency} ${item.cgl}`,
+        }));
+
+        setRows(mappedRows);
+        setTotalElements(
+          response?.data?.totalElements || response?.totalElements || 0
+        );
+      } catch (err) {
+        console.error("Search Fail:", err);
+        setRows([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [filters]
+  );
+
+  useEffect(() => {
+    if (filters.date) {
+      fetchData(filters.date, paginationModel.page, paginationModel.pageSize);
+    }
+  }, [paginationModel.page, paginationModel.pageSize]);
+
+  const columns = [
+    { field: "reconRunDate", headerName: "Error Date", flex: 1 },
+    { field: "GLCC_VAL", headerName: "GLCC", flex: 1 },
+    { field: "cbsBalance", headerName: "CBS Balance", flex: 1 },
+    { field: "glBalance", headerName: "GL Balance", flex: 1 },
+    {
+      field: "differenceAmount",
+      headerName: "Difference",
+      flex: 1,
+      renderCell: (params) => (
+        <Typography
+          sx={{
+            color: params.value < 0 ? "#d32f2f" : "#2e7d32",
+            fontWeight: 700,
+          }}
+        >
+          {params.value?.toLocaleString()}
+        </Typography>
+      ),
+    },
+    {
+      field: "action",
+      headerName: "Action",
+      sortable: false,
+      renderCell: (params) => (
+        <IconButton
+          color="primary"
+          onClick={() => {
+            setSelectedRow(params.row);
+            setOpenHistory(true);
+          }}
+        >
+          <HistoryIcon />
+        </IconButton>
+      ),
+    },
+  ];
+
+  return (
+    <Box sx={{ width: "100%", p: 2 }}>
+      {/* FILTER CARD */}
+      <Card sx={{ mb: 4 }}>
+        <CardContent>
+          <Grid container spacing={2}>
+            <Grid item xs={2}>
+              <TextField
+                fullWidth
+                label="ETL Date"
+                type="date"
+                size="small"
+                value={etlDate}
+                onChange={(e) => {
+                  setEtlDate(e.target.value);
+                  updateFilter("date", e.target.value);
+                }}
+                InputLabelProps={{ shrink: true }}
+                onKeyDown={(e) => e.preventDefault()}
+              />
+            </Grid>
+
+            <Grid item xs={2}>
+              <TextField
+                fullWidth
+                label="Branch"
+                size="small"
+                value={filters.branchCode}
+                onChange={(e) =>
+                  updateFilter(
+                    "branchCode",
+                    validateBranchCode(e.target.value)
+                  )
+                }
+              />
+            </Grid>
+
+            <Grid item xs={2}>
+              <TextField
+                fullWidth
+                label="Currency"
+                size="small"
+                value={filters.currency}
+                onChange={(e) =>
+                  updateFilter(
+                    "currency",
+                    validateCurrency(e.target.value)
+                  )
+                }
+              />
+            </Grid>
+
+            <Grid item xs={3}>
+              <TextField
+                fullWidth
+                label="CGL Number"
+                size="small"
+                value={filters.cgl}
+                onChange={(e) =>
+                  updateFilter("cgl", validateCGL(e.target.value))
+                }
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+
+            <Grid item xs={3}>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={() => {
+                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                  fetchData(filters.date, 0, paginationModel.pageSize);
+                }}
+              >
+                Search
+              </Button>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
+      {/* TABLE */}
+      <Paper sx={{ width: "100%" }}>
+        <Box sx={{ p: 1 }}>
+          <Typography>
+            {loading
+              ? "Loading..."
+              : `${totalElements.toLocaleString()} record(s) found`}
+          </Typography>
+        </Box>
+
+        <DataGrid
+          rows={rows}
+          columns={columns}
+          rowCount={totalElements}
+          loading={loading}
+          paginationMode="server"
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
+          pageSizeOptions={[10, 25, 50]}
+          autoHeight
+        />
+      </Paper>
+
+      {/* ✅ POPUP */}
+      <Dialog
+        open={openHistory}
+        onClose={() => setOpenHistory(false)}
+        fullWidth
+        maxWidth="md"
+      >
+        <DialogTitle>
+          Difference Details
+          <IconButton
+            onClick={() => setOpenHistory(false)}
+            sx={{ position: "absolute", right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent>
+          {selectedRow && (
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <Typography>Date: {selectedRow.reconRunDate}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography>Branch: {selectedRow.branchCode}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography>Currency: {selectedRow.currency}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography>CGL: {selectedRow.cgl}</Typography>
+              </Grid>
+
+              <Grid item xs={6}>
+                <Typography>CBS: {selectedRow.cbsBalance}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography>GL: {selectedRow.glBalance}</Typography>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography sx={{ color: "red", fontWeight: 700 }}>
+                  Difference: {selectedRow.differenceAmount}
+                </Typography>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={() => setOpenHistory(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+};
+
+export default BalanceParticularSearchScreen;

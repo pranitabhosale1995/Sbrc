@@ -1,0 +1,234 @@
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import {
+  TextField,
+  Button,
+  Box,
+  Container,
+  Paper,
+  Typography,
+  Grid,
+  InputAdornment,
+  Card,
+  CardContent,
+  Alert,
+  Snackbar,
+  Chip,
+} from "@mui/material";
+import { DataGrid } from "@mui/x-data-grid";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import SearchIcon from "@mui/icons-material/Search";
+import useApi from "../../hooks/useApi";
+import useValidation from "../../hooks/useValidation"; // ✅ added
+
+const INITIAL_FILTERS = {
+  fromDate: "",
+  toDate: "",
+  branchCode: "",
+  currency: "",
+  cgl: "",
+};
+
+const INITIAL_PAGINATION = { page: 0, pageSize: 100 };
+const PAGE_SIZE_OPTIONS = [100, 200, 300, 400];
+const TODAY = new Date().toISOString().split("T")[0];
+
+const formatNumber = (value) =>
+  value != null
+    ? Number(value).toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    : "-";
+
+const buildPayload = (filters) => ({
+  fromDate: filters.fromDate,
+  toDate: filters.toDate,
+  branchCode: filters.branchCode?.trim() || null,
+  currency: filters.currency?.trim() || null,
+  cgl: filters.cgl?.trim() || null,
+});
+
+const mapRowData = (item, pageIndex, index) => ({
+  id: item.id ?? `row-${pageIndex}-${index}`,
+  ERROR_DATE: item.first_ERROR_DATE || "-",
+  BRANCH_CODE: item.branchCode || "-",
+  CURRENCY: item.currency || "-",
+  CGL: item.cgl || "-",
+  CBS_BALANCE: item.cbsBalance ?? 0,
+  GL_BALANCE: item.glBalance ?? 0,
+  DIFFERENCE_AMOUNT: item.differenceAmount ?? 0,
+  DIFF_YESTERDAY: item.diffBwYesterday ?? 0,
+  TYPE_VAL: item.type || "-",
+  HEAD_VAL: item.head || "-",
+});
+
+const DifferenceCell = ({ value }) => (
+  <Typography
+    variant="body2"
+    sx={{
+      color: value < 0 ? "error.main" : value > 0 ? "success.main" : "text.secondary",
+      fontWeight: 600,
+    }}
+  >
+    {formatNumber(value)}
+  </Typography>
+);
+
+const NumericCell = ({ value }) => (
+  <Typography variant="body2" sx={{ textAlign: "right", width: "100%" }}>
+    {formatNumber(value)}
+  </Typography>
+);
+
+const BalanceRangeSearchScreen = () => {
+  const { callApi } = useApi();
+  const { validateBranchCode, validateCurrency, validateCGL } = useValidation(); // ✅ added
+
+  const [filters, setFilters] = useState(INITIAL_FILTERS);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [showTable, setShowTable] = useState(false);
+  const [totalElements, setTotalElements] = useState(0);
+  const [paginationModel, setPaginationModel] = useState(INITIAL_PAGINATION);
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "error" });
+  const [validationErrors, setValidationErrors] = useState({});
+
+  const isFirstRender = useRef(true);
+
+  const validate = useCallback(() => {
+    const errors = {};
+    if (!filters.fromDate) errors.fromDate = "From Date is required";
+    if (!filters.toDate) errors.toDate = "To Date is required";
+    if (filters.fromDate && filters.fromDate > TODAY)
+      errors.fromDate = "From Date cannot be future";
+    if (filters.toDate && filters.toDate > TODAY)
+      errors.toDate = "To Date cannot be future";
+    if (filters.fromDate && filters.toDate && filters.fromDate > filters.toDate)
+      errors.toDate = "To Date must be after From Date";
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  }, [filters.fromDate, filters.toDate]);
+
+  const updateFilter = useCallback((key, value) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setValidationErrors((prev) => ({ ...prev, [key]: undefined }));
+  }, []);
+
+  const fetchDifferences = useCallback(
+    async (pageIndex, pageSize) => {
+      setLoading(true);
+      try {
+        const response = await callApi(
+          `/ES/differences/search?page=${pageIndex}&size=${pageSize}`,
+          buildPayload(filters),
+          "POST"
+        );
+
+        const content = response?.data?.content ?? response?.content ?? [];
+        const totalCount = response?.data?.totalElements ?? response?.totalElements ?? 0;
+
+        setRows(content.map((item, index) => mapRowData(item, pageIndex, index)));
+        setTotalElements(totalCount);
+
+        if (content.length === 0) {
+          setSnackbar({ open: true, message: "No records found", severity: "info" });
+        }
+      } catch (err) {
+        setRows([]);
+        setTotalElements(0);
+        setSnackbar({ open: true, message: "API Error", severity: "error" });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [filters, callApi]
+  );
+
+  const handleSearch = useCallback(() => {
+    if (!validate()) return;
+    setShowTable(true);
+    setPaginationModel(INITIAL_PAGINATION);
+    fetchDifferences(0, INITIAL_PAGINATION.pageSize);
+  }, [validate, fetchDifferences]);
+
+  const columns = useMemo(
+    () => [
+      { field: "ERROR_DATE", headerName: "Error Date", width: 120 },
+      { field: "BRANCH_CODE", headerName: "Branch", width: 90 },
+      { field: "CURRENCY", headerName: "Currency", width: 90 },
+      { field: "CGL", headerName: "CGL", width: 140 },
+      {
+        field: "CBS_BALANCE",
+        headerName: "CBS Balance",
+        width: 160,
+        renderCell: ({ value }) => <NumericCell value={value} />,
+      },
+      {
+        field: "GL_BALANCE",
+        headerName: "GL Balance",
+        width: 160,
+        renderCell: ({ value }) => <NumericCell value={value} />,
+      },
+      {
+        field: "DIFFERENCE_AMOUNT",
+        headerName: "Difference",
+        width: 180,
+        renderCell: ({ value }) => <DifferenceCell value={value} />,
+      },
+    ],
+    []
+  );
+
+  return (
+    <Container maxWidth="xl">
+      <Card>
+        <CardContent>
+          <Grid container spacing={2}>
+
+            {/* Branch */}
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="Branch Code"
+                value={filters.branchCode}
+                onChange={(e) =>
+                  updateFilter("branchCode", validateBranchCode(e.target.value))
+                }
+              />
+            </Grid>
+
+            {/* Currency */}
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="Currency"
+                value={filters.currency}
+                onChange={(e) =>
+                  updateFilter("currency", validateCurrency(e.target.value))
+                }
+              />
+            </Grid>
+
+            {/* CGL */}
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="CGL"
+                value={filters.cgl}
+                onChange={(e) =>
+                  updateFilter("cgl", validateCGL(e.target.value))
+                }
+              />
+            </Grid>
+
+            <Button onClick={handleSearch}>Search</Button>
+          </Grid>
+        </CardContent>
+      </Card>
+
+      <DataGrid rows={rows} columns={columns} />
+    </Container>
+  );
+};
+
+export default BalanceRangeSearchScreen;

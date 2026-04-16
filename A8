@@ -1,0 +1,195 @@
+import React, { useState, useEffect } from "react";
+import {
+  TextField,
+  Button,
+  Container,
+  Box,
+} from "@mui/material";
+import { DataGrid } from "@mui/x-data-grid";
+import useApi from "../../hooks/useApi";
+import useValidation from "./Validation";
+
+const TODAY = new Date().toISOString().split("T")[0];
+
+const INITIAL = {
+  filters: { fromDate: "", toDate: "", branchCode: "", currency: "", cgl: "" },
+  page: { page: 0, pageSize: 100 },
+};
+
+export default function BalanceRangeSearchScreen() {
+  const { callApi } = useApi();
+  const { validateBranchCode, validateCurrency, validateCGL } = useValidation();
+
+  const [state, setState] = useState({
+    ...INITIAL,
+    rows: [],
+    total: 0,
+    loading: false,
+    show: false,
+    errors: {},
+  });
+
+  // ✅ common setter
+  const setField = (key, val) =>
+    setState((p) => ({
+      ...p,
+      filters: { ...p.filters, [key]: val },
+      errors: { ...p.errors, [key]: "" },
+    }));
+
+  // ✅ validation
+  const validate = () => {
+    const { fromDate, toDate } = state.filters;
+    const e = {};
+    if (!fromDate) e.fromDate = "Required";
+    if (!toDate) e.toDate = "Required";
+    if (fromDate > TODAY) e.fromDate = "Future not allowed";
+    if (toDate > TODAY) e.toDate = "Future not allowed";
+    if (fromDate > toDate) e.toDate = "Invalid range";
+
+    setState((p) => ({ ...p, errors: e }));
+    return !Object.keys(e).length;
+  };
+
+  // ✅ API call
+  const fetchData = async (page = 0, size = 100) => {
+    setState((p) => ({ ...p, loading: true }));
+    try {
+      const { filters } = state;
+
+      const res = await callApi(
+        `/ES/differences/search?page=${page}&size=${size}`,
+        {
+          ...filters,
+          branchCode: filters.branchCode || null,
+          currency: filters.currency || null,
+          cgl: filters.cgl || null,
+        },
+        "POST"
+      );
+
+      const data = res?.data || res || {};
+
+      setState((p) => ({
+        ...p,
+        rows: (data.content || []).map((x, i) => ({ id: i, ...x })),
+        total: data.totalElements || 0,
+      }));
+    } catch {
+      setState((p) => ({ ...p, rows: [], total: 0 }));
+    }
+    setState((p) => ({ ...p, loading: false }));
+  };
+
+  // ✅ search
+  const handleSearch = () => {
+    if (!validate()) return;
+    setState((p) => ({ ...p, show: true, page: INITIAL.page }));
+    fetchData();
+  };
+
+  // ✅ pagination
+  useEffect(() => {
+    if (state.show)
+      fetchData(state.page.page, state.page.pageSize);
+  }, [state.page]);
+
+  // ✅ columns
+  const columns = [
+    { field: "ERROR_DATE", headerName: "Date", width: 120 },
+    { field: "BRANCH_CODE", headerName: "Branch", width: 100 },
+    { field: "CURRENCY", headerName: "Currency", width: 100 },
+    { field: "CGL", headerName: "CGL", width: 120 },
+    {
+      field: "DIFFERENCE_AMOUNT",
+      headerName: "Diff",
+      width: 150,
+      renderCell: ({ value }) => (
+        <span style={{ color: value < 0 ? "red" : "green" }}>
+          {value}
+        </span>
+      ),
+    },
+  ];
+
+  return (
+    <Container sx={{ mt: 4 }}>
+      {/* Filters */}
+      <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
+        
+        <TextField
+          type="date"
+          size="small"
+          value={state.filters.fromDate}
+          onChange={(e) => setField("fromDate", e.target.value)}
+          onKeyDown={(e) => e.preventDefault()}
+          inputProps={{ max: TODAY }}
+          error={!!state.errors.fromDate}
+          helperText={state.errors.fromDate}
+        />
+
+        <TextField
+          type="date"
+          size="small"
+          value={state.filters.toDate}
+          onChange={(e) => setField("toDate", e.target.value)}
+          onKeyDown={(e) => e.preventDefault()}
+          inputProps={{ max: TODAY }}
+          error={!!state.errors.toDate}
+          helperText={state.errors.toDate}
+        />
+
+        <TextField
+          label="Branch"
+          size="small"
+          value={state.filters.branchCode}
+          onChange={(e) =>
+            setField("branchCode", validateBranchCode(e.target.value))
+          }
+        />
+
+        <TextField
+          label="Currency"
+          size="small"
+          value={state.filters.currency}
+          onChange={(e) =>
+            setField("currency", validateCurrency(e.target.value))
+          }
+        />
+
+        <TextField
+          label="CGL"
+          size="small"
+          value={state.filters.cgl}
+          onChange={(e) =>
+            setField("cgl", validateCGL(e.target.value))
+          }
+        />
+
+        <Button
+          variant="contained"
+          onClick={handleSearch}
+          disabled={state.loading}
+        >
+          {state.loading ? "Loading..." : "Search"}
+        </Button>
+      </Box>
+
+      {/* Table */}
+      {state.show && (
+        <DataGrid
+          rows={state.rows}
+          columns={columns}
+          rowCount={state.total}
+          loading={state.loading}
+          paginationMode="server"
+          paginationModel={state.page}
+          onPaginationModelChange={(p) =>
+            setState((s) => ({ ...s, page: p }))
+          }
+          autoHeight
+        />
+      )}
+    </Container>
+  );
+}

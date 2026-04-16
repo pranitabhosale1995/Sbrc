@@ -1,0 +1,29 @@
+import { useCallback } from "react";
+
+const useValidation = () => {
+
+  // Branch Code: only 5 digits
+  const validateBranchCode = useCallback((value) => {
+    const numericValue = value.replace(/\D/g, ""); // remove non-numbers
+    return numericValue.slice(0, 5); // max 5 digits
+  }, []);
+
+  // Currency: auto uppercase + only 3 chars
+  const validateCurrency = useCallback((value) => {
+    return value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
+  }, []);
+
+  // CGL: only 15 digits
+  const validateCGL = useCallback((value) => {
+    const numericValue = value.replace(/\D/g, "");
+    return numericValue.slice(0, 15);
+  }, []);
+
+  return {
+    validateBranchCode,
+    validateCurrency,
+    validateCGL,
+  };
+};
+
+export default useValidation;

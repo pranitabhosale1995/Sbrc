@@ -1,0 +1,46 @@
+<LocalizationProvider dateAdapter={AdapterDayjs}>
+  <DatePicker
+    label="From Date"
+    value={filters.fromDate ? dayjs(filters.fromDate) : null}
+    maxDate={dayjs()} // TODAY
+    onChange={(newValue) => {
+      const formattedDate = newValue
+        ? newValue.format("YYYY-MM-DD")
+        : "";
+      updateFilter("fromDate", formattedDate);
+    }}
+    slotProps={{
+      textField: {
+        fullWidth: true,
+        size: "small",
+        error: !!validationErrors.fromDate,
+        helperText: validationErrors.fromDate,
+      },
+    }}
+  />
+</LocalizationProvider>
+
+
+<LocalizationProvider dateAdapter={AdapterDayjs}>
+  <DatePicker
+    label="To Date"
+    value={filters.toDate ? dayjs(filters.toDate) : null}
+    maxDate={dayjs()} // आजपर्यंतच
+    minDate={filters.fromDate ? dayjs(filters.fromDate) : undefined} // From Date पेक्षा कमी नाही
+    onChange={(newValue) => {
+      const formattedDate = newValue
+        ? newValue.format("YYYY-MM-DD")
+        : "";
+
+      updateFilter("toDate", formattedDate);
+    }}
+    slotProps={{
+      textField: {
+        fullWidth: true,
+        size: "small",
+        error: !!validationErrors.toDate,
+        helperText: validationErrors.toDate,
+      },
+    }}
+  />
+</LocalizationProvider>

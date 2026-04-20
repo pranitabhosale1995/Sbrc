@@ -1,0 +1,25 @@
+import dayjs from "dayjs";
+import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+
+
+<LocalizationProvider dateAdapter={AdapterDayjs}>
+  <DatePicker
+    label="ETL Date"
+    value={etlDate ? dayjs(etlDate) : null}
+    onChange={(newValue) => {
+      const formattedDate = newValue
+        ? newValue.format("YYYY-MM-DD")
+        : "";
+
+      setEtlDate(formattedDate);
+      updateFilter("date", formattedDate);
+    }}
+    slotProps={{
+      textField: {
+        fullWidth: true,
+        size: "small",
+      },
+    }}
+  />
+</LocalizationProvider>

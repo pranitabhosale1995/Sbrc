@@ -3,14 +3,12 @@ import {
   TextField,
   Button,
   Box,
-  Container,
   Paper,
   Typography,
   IconButton,
   Grid,
   Card,
   CardContent,
-  Divider,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -22,11 +20,11 @@ import HistoryIcon from "@mui/icons-material/History";
 import CloseIcon from "@mui/icons-material/Close";
 import SearchIcon from "@mui/icons-material/Search";
 import useApi from "../../hooks/useApi";
-import useValidation from "./Validation"; // ✅ added
+import useValidation from "./Validation";
 
 const BalanceParticularSearchScreen = () => {
   const { callApi } = useApi();
-  const { validateBranchCode, validateCurrency, validateCGL } = useValidation(); // ✅ added
+  const { validateBranchCode, validateCurrency, validateCGL } = useValidation();
 
   const [filters, setFilters] = useState({
     date: "",
@@ -47,11 +45,11 @@ const BalanceParticularSearchScreen = () => {
 
   const [openHistory, setOpenHistory] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
-const [showTable, setShowTable] = useState(false);
+
   const updateFilter = (key, value) =>
     setFilters((prev) => ({ ...prev, [key]: value }));
 
-  // 1. Fetch Default ETL Date on Page Load
+  // ETL Date
   useEffect(() => {
     const fetchDefaultETLDate = async () => {
       try {
@@ -69,7 +67,7 @@ const [showTable, setShowTable] = useState(false);
     fetchDefaultETLDate();
   }, []);
 
-  // 2. Main Search API Call
+  // MAIN API
   const fetchData = useCallback(
     async (date, pageIndex, pageSize) => {
       if (!date) return;
@@ -83,7 +81,7 @@ const [showTable, setShowTable] = useState(false);
           cgl: filters.cgl || null,
         };
 
-        const response = await callApi(
+           const response = await callApi(
           `/ES/differences/search?page=${pageIndex}&size=${pageSize}`,
           payload,
           "POST"
@@ -108,7 +106,8 @@ const [showTable, setShowTable] = useState(false);
       }
     },
     [filters]
-  );
+   );
+
 
   useEffect(() => {
     if (filters.date) {
@@ -117,14 +116,14 @@ const [showTable, setShowTable] = useState(false);
   }, [paginationModel.page, paginationModel.pageSize]);
 
   const columns = [
-    { field: "reconRunDate", headerName: "Error Date" },
-    { field: "GLCC_VAL", headerName: "GLCC" },
-    { field: "cbsBalance", headerName: "CBS Balance", align: "right" },
-    { field: "glBalance", headerName: "GL Balance", align: "right" },
+    { field: "reconRunDate", headerName: "Error Date", flex: 1 },
+    { field: "GLCC_VAL", headerName: "GLCC", flex: 1 },
+    { field: "cbsBalance", headerName: "CBS Balance", flex: 1 },
+    { field: "glBalance", headerName: "GL Balance", flex: 1 },
     {
       field: "differenceAmount",
       headerName: "Difference",
-      align: "right",
+      flex: 1,
       renderCell: (params) => (
         <Typography
           sx={{
@@ -155,11 +154,12 @@ const [showTable, setShowTable] = useState(false);
   ];
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-       <Card sx={{ mb: 4, boxShadow: "0 4px 20px rgba(0,0,0,0.08)", borderRadius: 2 }}>
-        <CardContent sx={{ p: 3 }}>
-         <Grid container spacing={2} alignItems="flex-start">
-            <Grid item xs={12} sm={6} md={2.4}>
+    <Box sx={{ width: "100%", p: 2 }}>
+      {/* FILTER CARD */}
+      <Card sx={{ mb: 4 }}>
+        <CardContent>
+          <Grid container spacing={2}>
+            <Grid item xs={2}>
               <TextField
                 fullWidth
                 label="ETL Date"
@@ -170,16 +170,12 @@ const [showTable, setShowTable] = useState(false);
                   setEtlDate(e.target.value);
                   updateFilter("date", e.target.value);
                 }}
-                InputLabelProps={{ shrink: true ,
-                  
-                }}
-                
-                 onKeyDown={(e)=>e.preventDefault()}
+                InputLabelProps={{ shrink: true }}
+                onKeyDown={(e) => e.preventDefault()}
               />
             </Grid>
 
-            {/* ✅ Branch Validation */}
-            <Grid item xs={12} sm={3} md={2.4}>
+            <Grid item xs={2}>
               <TextField
                 fullWidth
                 label="Branch"
@@ -194,8 +190,7 @@ const [showTable, setShowTable] = useState(false);
               />
             </Grid>
 
-            {/* ✅ Currency Validation */}
-            <Grid item xs={12} sm={3} md={2}>
+            <Grid item xs={2}>
               <TextField
                 fullWidth
                 label="Currency"
@@ -210,13 +205,11 @@ const [showTable, setShowTable] = useState(false);
               />
             </Grid>
 
-            {/* ✅ CGL Validation */}
-            <Grid item xs={12} sm={8} md={2}>
+            <Grid item xs={3}>
               <TextField
                 fullWidth
                 label="CGL Number"
                 size="small"
-                placeholder="Search by CGL..."
                 value={filters.cgl}
                 onChange={(e) =>
                   updateFilter("cgl", validateCGL(e.target.value))
@@ -231,15 +224,10 @@ const [showTable, setShowTable] = useState(false);
               />
             </Grid>
 
-            <Grid item xs={12} sm={4} md={3.2}>
-               <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+            <Grid item xs={3}>
               <Button
                 fullWidth
                 variant="contained"
-                sx={{
-                  bgcolor: "#1a237e",
-                  padding: "10px 40px",
-                }}
                 onClick={() => {
                   setPaginationModel((prev) => ({ ...prev, page: 0 }));
                   fetchData(filters.date, 0, paginationModel.pageSize);
@@ -247,18 +235,21 @@ const [showTable, setShowTable] = useState(false);
               >
                 Search
               </Button>
-              </Box>
             </Grid>
           </Grid>
         </CardContent>
       </Card>
- 
-        <Paper sx={{ borderRadius: 2, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}>
-          <Box sx={{ px: 2, py: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        {loading ? "Loading..." : `${totalElements.toLocaleString()} record(s) found`}
-                      </Typography>
-                    </Box>
+
+      {/* TABLE */}
+      <Paper sx={{ width: "100%" }}>
+        <Box sx={{ p: 1 }}>
+          <Typography>
+            {loading
+              ? "Loading..."
+              : `${totalElements.toLocaleString()} record(s) found`}
+          </Typography>
+        </Box>
+
         <DataGrid
           rows={rows}
           columns={columns}
@@ -267,22 +258,65 @@ const [showTable, setShowTable] = useState(false);
           paginationMode="server"
           paginationModel={paginationModel}
           onPaginationModelChange={setPaginationModel}
-           pageSizeOptions={[10, 25, 50, 100]}
-          disableSelectionOnClick
-
- density="compact"
-            sx={{
-              border: "none",
-              "& .MuiDataGrid-columnHeaders": { backgroundColor: "#f5f5f5", fontWeight: 700, fontSize: "0.8rem" },
-              "& .MuiDataGrid-row:hover": { backgroundColor: "#f0f4ff" },
-              "& .MuiDataGrid-cell": { fontSize: "0.82rem" },
-            }}
-
+          pageSizeOptions={[10, 25, 50]}
+       
         />
       </Paper>
 
-    
-    </Container>
+      {/* ✅ POPUP */}
+      <Dialog
+        open={openHistory}
+        onClose={() => setOpenHistory(false)}
+        fullWidth
+        maxWidth="md"
+      >
+        <DialogTitle>
+          Difference Details
+          <IconButton
+            onClick={() => setOpenHistory(false)}
+            sx={{ position: "absolute", right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent>
+          {selectedRow && (
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <Typography>Date: {selectedRow.reconRunDate}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography>Branch: {selectedRow.branchCode}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography>Currency: {selectedRow.currency}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography>CGL: {selectedRow.cgl}</Typography>
+              </Grid>
+
+              <Grid item xs={6}>
+                <Typography>CBS: {selectedRow.cbsBalance}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography>GL: {selectedRow.glBalance}</Typography>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography sx={{ color: "red", fontWeight: 700 }}>
+                  Difference: {selectedRow.differenceAmount}
+                </Typography>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={() => setOpenHistory(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 };
 
